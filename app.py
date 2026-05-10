@@ -10,7 +10,9 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
+from dotenv import load_dotenv
 
+load_dotenv()
 # ========== НАСТРОЙКИ ==========
 logging.basicConfig(
     level=logging.INFO,

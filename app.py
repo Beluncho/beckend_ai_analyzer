@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from dotenv import load_dotenv
 
-load_dotenv(encoding='utf-8')
+load_dotenv(encoding="utf-8")
 # ========== НАСТРОЙКИ ==========
 logging.basicConfig(
     level=logging.INFO,

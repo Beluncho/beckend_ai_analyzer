@@ -25,7 +25,7 @@ app = FastAPI(title="AI Call Analyzer", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://*.lovable.app",
+         "https://id-preview--aad8e0f1-13a1-495f-9863-c75a409c356d.lovable.app",
         "https://*.lovableproject.com"
     ],
     allow_credentials=False,  # Безопасно, т.к. нет авторизации

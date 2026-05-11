@@ -24,13 +24,11 @@ app = FastAPI(title="AI Call Analyzer", version="1.0.0")
 # ========== CORS (исправлено для Lovable) ==========
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.lovableproject\.com",
+    allow_origin_regex=r"https://.*\.(lovableproject\.com|lovable\.app|onrender\.com)",
     allow_credentials=False,
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
-
-
 # ========== КЛЮЧ ИЗ ОКРУЖЕНИЯ ==========
 PROXY_API_KEY = os.getenv("PROXY_API_KEY")
 

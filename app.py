@@ -8,7 +8,7 @@ from typing import Optional, List, Any
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -24,14 +24,12 @@ app = FastAPI(title="AI Call Analyzer", version="1.0.0")
 # ========== CORS (исправлено для Lovable) ==========
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-         "https://id-preview--aad8e0f1-13a1-495f-9863-c75a409c356d.lovable.app",
-        "https://*.lovableproject.com"
-    ],
-    allow_credentials=False,  # Безопасно, т.к. нет авторизации
+    allow_origin_regex=r"https://.*\.lovableproject\.com",
+    allow_credentials=False,
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
 
 # ========== КЛЮЧ ИЗ ОКРУЖЕНИЯ ==========
 PROXY_API_KEY = os.getenv("PROXY_API_KEY")

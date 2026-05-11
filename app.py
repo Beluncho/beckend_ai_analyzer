@@ -21,11 +21,15 @@ logging.basicConfig(
 
 app = FastAPI(title="AI Call Analyzer", version="1.0.0")
 
+# ========== CORS (исправлено для Lovable) ==========
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
+    allow_origins=[
+        "https://*.lovable.app",
+        "https://*.lovableproject.com"
+    ],
+    allow_credentials=False,  # Безопасно, т.к. нет авторизации
+    allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
 

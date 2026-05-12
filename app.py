@@ -21,7 +21,7 @@ logging.basicConfig(
 
 app = FastAPI(title="AI Call Analyzer", version="1.0.0")
 
-# ========== CORS НАСТРОЙКИ (БЕЗОПАСНАЯ ВЕРСИЯ) ==========
+# ========== CORS НАСТРОЙКИ ==========
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -30,12 +30,11 @@ app.add_middleware(
         "https://*.lovableproject.com",
         "https://*.onrender.com"
     ],
-    allow_origin_regex=r"https://.*\.(lovableproject\.com|lovable\.app|onrender\.com)",
     allow_credentials=True,
-    allow_methods=["POST", "GET", "OPTIONS"],  # Только нужные методы
-    allow_headers=["Content-Type", "Authorization"],  # Только нужные заголовки
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    expose_headers=["*"],
 )
-
 # ========== КЛЮЧ ИЗ ОКРУЖЕНИЯ ==========
 PROXY_API_KEY = os.getenv("PROXY_API_KEY")
 

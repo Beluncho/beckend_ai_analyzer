@@ -8,11 +8,12 @@ from typing import Optional, List, Any
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
-from starlette.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv(encoding="utf-8")
+
 # ========== НАСТРОЙКИ ==========
 logging.basicConfig(
     level=logging.INFO,
@@ -33,8 +34,25 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "Accept"],
-    expose_headers=["*"],
 )
+
+
+# ========== ЯВНЫЙ ОБРАБОТЧИК OPTIONS ДЛЯ /analyze ==========
+@app.options("/analyze")
+async def options_analyze():
+    """Явная обработка preflight OPTIONS запросов"""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "https://talk-sparkler-ui.lovable.app",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
+
+
 # ========== КЛЮЧ ИЗ ОКРУЖЕНИЯ ==========
 PROXY_API_KEY = os.getenv("PROXY_API_KEY")
 
@@ -91,39 +109,37 @@ def _extract_text_from_transcription(resp: Any) -> str:
 
 
 def transcribe_audio(client: OpenAI, wav_path: str) -> str:
-    # Используем модели из документации без префикса
+    """Транскрибация аудио в текст"""
     model_candidates = ["whisper-1", "gpt-4o-mini-transcribe"]
 
     for m in model_candidates:
         try:
-            logging.info(f"Attempting transcription with model: {m}")
+            logging.info(f"Transcribing with model: {m}")
             with open(wav_path, "rb") as f:
                 resp = client.audio.transcriptions.create(
                     model=m,
                     file=f,
                     response_format="text",
-                    language="ru",  # Явно указываем русский язык
+                    language="ru",
                 )
             text = _extract_text_from_transcription(resp)
             if text:
-                logging.info(f"Transcription successful with {m}, length: {len(text)}")
+                logging.info(f"Transcription successful, length: {len(text)} chars")
                 return text
-            else:
-                logging.warning(f"Empty transcription with {m}")
         except Exception as e:
-            logging.error(f"Transcription failed with {m}: {type(e).__name__}: {e}")
+            logging.warning(f"Transcription failed with {m}: {e}")
             continue
 
     raise RuntimeError("All transcription models failed")
 
 
 def diarize_text(client: OpenAI, raw_transcript: str) -> str:
-    # Используем модели из документации
-    model_candidates = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"]
+    """Разделение текста по спикерам"""
+    model_candidates = ["gpt-4o-mini", "gpt-4o", "gpt-5.4-nano"]
 
     for m in model_candidates:
         try:
-            logging.info(f"Attempting diarization with model: {m}")
+            logging.info(f"Diarizing with model: {m}")
             resp = client.chat.completions.create(
                 model=m,
                 temperature=0.0,
@@ -141,10 +157,9 @@ def diarize_text(client: OpenAI, raw_transcript: str) -> str:
             )
             out = resp.choices[0].message.content.strip()
             if out:
-                logging.info(f"Diarization successful with {m}")
                 return out
         except Exception as e:
-            logging.error(f"Diarization failed with {m}: {type(e).__name__}: {e}")
+            logging.warning(f"Diarization failed with {m}: {e}")
             continue
 
     # Fallback
@@ -159,8 +174,8 @@ def diarize_text(client: OpenAI, raw_transcript: str) -> str:
 
 
 def analyze_dialogue(client: OpenAI, dialogue_text: str, criteria: List[str]) -> str:
-    # Используем модели из документации
-    model_candidates = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"]
+    """Анализ диалога по критериям"""
+    model_candidates = ["gpt-4o-mini", "gpt-4o", "gpt-5.4-nano"]
     criteria_block = "\n".join([f"- {c}" for c in criteria]) if criteria else "- (критерии не переданы)"
 
     system_prompt = (
@@ -174,7 +189,7 @@ def analyze_dialogue(client: OpenAI, dialogue_text: str, criteria: List[str]) ->
 
     for m in model_candidates:
         try:
-            logging.info(f"Attempting analysis with model: {m}")
+            logging.info(f"Analyzing with model: {m}")
             resp = client.chat.completions.create(
                 model=m,
                 temperature=0.2,
@@ -185,47 +200,27 @@ def analyze_dialogue(client: OpenAI, dialogue_text: str, criteria: List[str]) ->
             )
             out = resp.choices[0].message.content.strip()
             if out:
-                logging.info(f"Analysis successful with {m}")
                 return out
         except Exception as e:
-            logging.error(f"Analysis failed with {m}: {type(e).__name__}: {e}")
+            logging.warning(f"Analysis failed with {m}: {e}")
             continue
 
     raise RuntimeError("All analysis models failed")
 
 
-# ========== ТЕСТОВЫЙ ЭНДПОИНТ ДЛЯ ДИАГНОСТИКИ ==========
+# ========== ТЕСТОВЫЙ ЭНДПОИНТ ==========
 @app.get("/test")
 async def test():
-    """Тестовый эндпоинт для проверки подключения к API"""
-    results = {}
-
-    # Тест 1: Список моделей
-    try:
-        models = _openai_client.models.list()
-        results["models_list"] = "success (got models)"
-    except Exception as e:
-        results["models_list"] = f"failed: {str(e)}"
-
-    # Тест 2: Простой chat completion
-    try:
-        test_response = _openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": "Say 'API works'"}],
-            max_tokens=10
-        )
-        results["chat_test"] = f"success: {test_response.choices[0].message.content}"
-    except Exception as e:
-        results["chat_test"] = f"failed: {str(e)}"
-
-    return JSONResponse(content={"status": "diagnostic", "results": results})
+    """Тестовый эндпоинт для проверки работы сервера"""
+    return JSONResponse(content={"status": "ok", "message": "Server is running"})
 
 
 # ========== ОСНОВНОЙ ЭНДПОИНТ ==========
 @app.post("/analyze")
 async def analyze(request: Request):
-    logging.info("Request received")
+    logging.info("=== NEW REQUEST RECEIVED ===")
 
+    # Парсинг запроса
     content_type = request.headers.get("content-type", "").lower()
     text = None
     criteria = []
@@ -236,11 +231,16 @@ async def analyze(request: Request):
             data = await request.json()
             text = data.get("text", "").strip() if isinstance(data, dict) else None
             criteria = normalize_criteria(data.get("criteria"))
+            logging.info(f"JSON request - text length: {len(text) if text else 0}")
         else:
             form = await request.form()
             text = form.get("text", "").strip() if form.get("text") else None
             criteria = normalize_criteria(form.get("criteria"))
             upload = form.get("file")
+            if upload:
+                logging.info(f"Form request - file: {upload.filename}, text length: {len(text) if text else 0}")
+            else:
+                logging.info(f"Form request - text length: {len(text) if text else 0}")
     except Exception as e:
         logging.exception("Parse error")
         raise HTTPException(status_code=400, detail="Invalid request format")
@@ -250,6 +250,7 @@ async def analyze(request: Request):
 
     dialogue_text = ""
 
+    # Аудио -> транскрибация -> диаризация
     if upload:
         filename = getattr(upload, "filename", "audio")
         logging.info(f"Processing audio: {filename}")
@@ -270,6 +271,7 @@ async def analyze(request: Request):
 
                 raw_text = transcribe_audio(_openai_client, wav_path)
                 dialogue_text = diarize_text(_openai_client, raw_text)
+                logging.info(f"Dialogue text length: {len(dialogue_text)} chars")
 
             except subprocess.CalledProcessError as e:
                 logging.exception("FFmpeg error")
@@ -279,11 +281,12 @@ async def analyze(request: Request):
                 raise HTTPException(status_code=500, detail=f"Audio processing failed: {str(e)}")
     else:
         dialogue_text = text or ""
-        logging.info("Text mode")
+        logging.info(f"Text mode, length: {len(dialogue_text)} chars")
 
+    # Анализ диалога
     try:
         analysis = analyze_dialogue(_openai_client, dialogue_text, criteria)
-        logging.info("Analysis completed")
+        logging.info("Analysis completed successfully")
     except Exception as e:
         logging.exception("Analysis error")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
@@ -291,6 +294,7 @@ async def analyze(request: Request):
     return JSONResponse(content={"status": "ok", "analysis": analysis})
 
 
+# ========== ЗАПУСК ==========
 if __name__ == "__main__":
     import uvicorn
 

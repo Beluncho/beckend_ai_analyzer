@@ -21,13 +21,19 @@ logging.basicConfig(
 
 app = FastAPI(title="AI Call Analyzer", version="1.0.0")
 
-# ========== CORS ==========
+# ========== CORS НАСТРОЙКИ (БЕЗОПАСНАЯ ВЕРСИЯ) ==========
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=[
+        "https://talk-sparkler-ui.lovable.app",
+        "https://*.lovable.app",
+        "https://*.lovableproject.com",
+        "https://*.onrender.com"
+    ],
     allow_origin_regex=r"https://.*\.(lovableproject\.com|lovable\.app|onrender\.com)",
-    allow_credentials=False,
-    allow_methods=["POST", "OPTIONS"],
-    allow_headers=["*"],
+    allow_credentials=True,
+    allow_methods=["POST", "GET", "OPTIONS"],  # Только нужные методы
+    allow_headers=["Content-Type", "Authorization"],  # Только нужные заголовки
 )
 
 # ========== КЛЮЧ ИЗ ОКРУЖЕНИЯ ==========
